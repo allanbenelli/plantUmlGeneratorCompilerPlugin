@@ -8,6 +8,7 @@ import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.expressions.FirBlock
+import org.jetbrains.kotlin.fir.expressions.FirEqualityOperatorCall
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
 import org.jetbrains.kotlin.fir.expressions.FirStatement
@@ -81,7 +82,7 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
         when (stmt) {
             is FirWhenExpression -> {
                 if (isIfExpression(stmt)) {
-                    val condition = stmt.branches.getOrNull(0)?.condition?.render() ?: "Unknown Condition"
+                    val condition = stmt.branches.getOrNull(0)?.condition?.source?.lighterASTNode ?: "Unknown Condition"
                     output.appendText("${ind}if ($condition?) then (yes)\n")
                     stmt.branches.getOrNull(0)?.result?.let {
                         parseFirStatement(it, output, activityListName, indent + 1)
@@ -92,10 +93,10 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
                     }
                     output.appendText("${ind}endif\n")
                 } else {
-                    val subject = stmt.subject?.render() ?: "Unknown"
+                    val subject = stmt.subject?.source?.lighterASTNode ?: "Unknown"
                     output.appendText("${ind}switch ($subject)\n")
                     stmt.branches.forEach { branch ->
-                        val cond = branch.condition.render()
+                        val cond = branch.condition.source?.lighterASTNode
                         output.appendText("${ind}case (\"$cond\")\n")
                         parseFirStatement(branch.result, output, activityListName, indent + 1)
                     }
@@ -110,12 +111,22 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
             }
             
             is FirFunctionCall -> {
-                val receiver = stmt.explicitReceiver?.render() ?: ""
+                val receiver = stmt.explicitReceiver?.source?.lighterASTNode.toString()
                 val callee = stmt.calleeReference.name.asString()
                 if ((receiver == activityListName && callee == "add") || callee == "plusAssign") {
-                    val arg = stmt.argumentList.arguments.firstOrNull()?.render() ?: "Unknown"
+                    val arg = stmt.argumentList.arguments.firstOrNull()?.source?.lighterASTNode ?: "Unknown"
                     output.appendText("${ind}:$arg;\n")
                 }
+                
+                
+//                if ((receiver == activityListName && callee == "add") || callee == "plusAssign") {
+//                    stmt.argumentList.arguments.forEach {
+//                        parseFirStatement(it, output, activityListName, indent)
+//                    }
+//                } else if (callee.contains("Activity") && !callee.contains("Context")){
+//                    output.appendText("${ind}:$callee;\n")
+//                }
+                
             }
             
             else -> {
@@ -129,7 +140,14 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
     }
     
     private fun isIfExpression(whenExpr: FirWhenExpression): Boolean {
-        return whenExpr.branches.size == 2 &&
-                whenExpr.branches[1].condition is FirElseIfTrueCondition
+        val branches = whenExpr.branches.size
+        
+        //return whenExpr.branches.size == 2 && whenExpr.branches[1].condition is FirElseIfTrueCondition
+        
+        return when (branches) {
+            1 -> (whenExpr.branches.first().condition is FirFunctionCall) == true
+            2 -> (whenExpr.branches[1].condition is FirElseIfTrueCondition) == true
+            else -> false
+        }
     }
 }

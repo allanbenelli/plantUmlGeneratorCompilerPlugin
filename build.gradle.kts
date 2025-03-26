@@ -1,5 +1,11 @@
 import org.gradle.kotlin.dsl.libs
 
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
+}
+
 buildscript {
 
     repositories {
