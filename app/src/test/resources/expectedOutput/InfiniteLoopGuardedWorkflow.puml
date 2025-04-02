@@ -1,0 +1,9 @@
+@startuml
+start
+:ActivityStart();
+while (counter < 5)
+    :ActivityLoop(counter);
+endwhile
+:ActivityEnd();
+stop
+@enduml

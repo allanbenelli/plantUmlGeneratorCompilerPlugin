@@ -1,0 +1,18 @@
+@startuml
+start
+switch (condition)
+case ("1, 2")
+    :ActivityCondition12();
+case ("3")
+    :ActivityCondition3();
+case ("")
+    :ActivityConditionElse();
+endswitch
+switch ((1..2).random())
+case ("1")
+    :ActivitySecondWhen1();
+case ("")
+    :ActivitySecondWhen2();
+endswitch
+stop
+@enduml

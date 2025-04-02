@@ -1,0 +1,16 @@
+@startuml
+start
+:ActivityStart();
+if (randomValue > 5?) then (yes)
+    :ActivityA();
+    if (randomValue % 2 == 0?) then (yes)
+        :ActivityB();
+    else (no)
+        :ActivityC();
+    endif
+else (no)
+    :ActivityD();
+endif
+:ActivityEnd();
+stop
+@enduml

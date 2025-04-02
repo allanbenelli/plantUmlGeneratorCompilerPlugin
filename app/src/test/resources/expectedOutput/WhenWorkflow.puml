@@ -1,0 +1,15 @@
+@startuml
+start
+switch (status)
+case (""NEW"")
+    :ActivityNew();
+    :ActivityInit();
+case (""PROCESSING"")
+    :ActivityProcessing();
+case (""COMPLETED"")
+    :ActivityCompleted();
+case ("")
+    :ActivityUnknown();
+endswitch
+stop
+@enduml

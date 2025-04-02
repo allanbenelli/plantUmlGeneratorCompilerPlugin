@@ -1,0 +1,11 @@
+@startuml
+start
+repeat (1..3 as i)
+    :ActivityLoop(i);
+endrepeat
+while (counter < 2)
+    :ActivityWhileLoop(counter);
+endwhile
+:ActivityEnd();
+stop
+@enduml

@@ -1,0 +1,11 @@
+@startuml
+start
+:ActivityStart();
+if (System.currentTimeMillis() % 2 == 0L?) then (yes)
+    :ActivityEven();
+else (no)
+    :ActivityOdd();
+endif
+:ActivityEnd();
+stop
+@enduml

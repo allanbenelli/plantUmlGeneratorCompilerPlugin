@@ -1,0 +1,10 @@
+@startuml
+start
+:ActivityA();
+if (true?) then (yes)
+    :ActivityB();
+else (no)
+    :ActivityC();
+endif
+stop
+@enduml

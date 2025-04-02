@@ -1,0 +1,24 @@
+@startuml
+start
+:ActivityA();
+if (true == true?) then (yes)
+    :ActivityB();
+else (no)
+    if (false == true?) then (yes)
+    else (no)
+        :ActivityC();
+    endif
+endif
+if (isFeatureToggle()?) then (yes)
+    :ActivityD();
+endif
+switch (case)
+case ("Case.A")
+    :ActivityCaseA();
+case ("Case.B")
+    :ActivityCaseB();
+case ("Case.C")
+    :ActivityCaseC();
+endswitch
+stop
+@enduml

@@ -1,0 +1,12 @@
+@startuml
+start
+:ActivityStart();
+if ((1..10).random() > 5?) then (yes)
+    :ActivityA();
+    :ActivityB();
+else (no)
+    :ActivityC();
+endif
+:ActivityEnd();
+stop
+@enduml
