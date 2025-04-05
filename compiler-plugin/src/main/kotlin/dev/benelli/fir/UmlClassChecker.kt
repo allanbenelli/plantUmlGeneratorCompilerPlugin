@@ -1,4 +1,7 @@
 package dev.benelli.fir
+import dev.benelli.KEY_OUTPUT_DIR
+import dev.benelli.KEY_WORKFLOW_INTERFACE
+import dev.benelli.KEY_WORKFLOW_METHOD
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirClassChecker
@@ -11,6 +14,7 @@ import org.jetbrains.kotlin.fir.expressions.FirBlock
 import org.jetbrains.kotlin.fir.expressions.FirEqualityOperatorCall
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
+import org.jetbrains.kotlin.fir.expressions.FirReturnExpression
 import org.jetbrains.kotlin.fir.expressions.FirStatement
 import org.jetbrains.kotlin.fir.expressions.FirWhenExpression
 import org.jetbrains.kotlin.fir.expressions.FirWhileLoop
@@ -21,6 +25,19 @@ import java.io.File
 
 
 object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
+    private var outputDirPath: String = "build/generated/plantUml"
+    private var workflowInterfaceName: String = "WorkflowInterface"
+    private var workflowMethodName: String = "getActivityList"
+    
+    fun configure(
+        outputDirPath: String,
+        workflowInterfaceName: String,
+        workflowMethodName: String
+    ) {
+        this.outputDirPath = outputDirPath
+        this.workflowInterfaceName = workflowInterfaceName
+        this.workflowMethodName = workflowMethodName
+    }
     
     override fun check(
         declaration: FirClass,
@@ -31,24 +48,25 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
         
         val className = declaration.name.asString()
         
-        // Prüfe, ob die Klasse WorkflowInterface implementiert
         val implementsWorkflow = declaration.superTypeRefs.any {
-            it.coneType.toString().contains("WorkflowInterface")
+            it.coneType.toString().contains(workflowInterfaceName)
         }
         
-        if (!implementsWorkflow) return
+        if (!implementsWorkflow)  {
+            return
+        }
         
-        val outputDir = File("build")
+        val outputDir = File(outputDirPath)
         outputDir.mkdirs()
         val output = File(outputDir, "uml-$className.puml")
         output.writeText("@startuml\nstart\n")
         
         val function = declaration.declarations
             .filterIsInstance<FirSimpleFunction>()
-            .firstOrNull { it.name.asString() == "getActivityList" }
+            .firstOrNull { it.name.asString() == workflowMethodName }
         
         if (function == null) {
-            println("⚠️ Methode 'getActivityList' in $className nicht gefunden.")
+            println("⚠️ Methode '$workflowMethodName' in $className nicht gefunden.")
             return
         }
         
@@ -113,6 +131,16 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
             is FirFunctionCall -> {
                 val receiver = stmt.explicitReceiver?.source?.lighterASTNode.toString()
                 val callee = stmt.calleeReference.name.asString()
+                
+                if (callee == "buildList") {
+                    val lambda = stmt.argumentList.arguments.firstOrNull() as? FirAnonymousFunction
+                    val lambdaBody = lambda?.body as? FirBlock
+                    if (lambdaBody != null) {
+                        parseFirBody(lambdaBody, output, activityListName, indent)
+                    }
+                    return
+                }
+                
                 if ((receiver == activityListName && callee == "add") || callee == "plusAssign") {
                     val arg = stmt.argumentList.arguments.firstOrNull()?.source?.lighterASTNode ?: "Unknown"
                     output.appendText("${ind}:$arg;\n")
@@ -127,6 +155,17 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
 //                    output.appendText("${ind}:$callee;\n")
 //                }
                 
+            }
+            
+            is FirReturnExpression -> {
+                val returnExpr = stmt.result as? FirFunctionCall
+                if (returnExpr?.calleeReference?.name?.asString() == "buildList") {
+                    val lambda = returnExpr.argumentList.arguments.firstOrNull() as? FirAnonymousFunction
+                    val lambdaBody = lambda?.body as? FirBlock
+                    if (lambdaBody != null) {
+                        parseFirBody(lambdaBody, output, activityListName, indent)
+                    }
+                }
             }
             
             else -> {

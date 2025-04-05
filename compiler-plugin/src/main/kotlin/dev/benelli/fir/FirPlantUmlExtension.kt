@@ -21,7 +21,7 @@ import java.io.File
 class FirPlantUmlExtension(session: FirSession) : FirAdditionalCheckersExtension(session) {
     
     init {
-        println(">>> 🧪 FirPlantUmlExtension wird instanziert!")
+        println(">>> FirPlantUmlExtension wird instanziert!")
     }
     
     override val declarationCheckers: DeclarationCheckers = object : DeclarationCheckers() {

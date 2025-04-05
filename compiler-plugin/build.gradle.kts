@@ -46,7 +46,7 @@ publishing {
 
             pom {
                 name.set("compiler-plugin")
-                description.set("Hello World Compiler Plugin")
+                description.set("Plant UML Generator Compiler Plugin")
                 url.set("https://github.com/allanbenelli/plantUmlGeneratorCompilerPlugin")
 
                 licenses {
@@ -61,8 +61,8 @@ publishing {
                 }
                 developers {
                     developer {
-                        name.set("Developer Name")
-                        url.set("Developer URL")
+                        name.set("Allan Benelli")
+                        url.set("https://github.com/allanbenelli")
                     }
                 }
             }

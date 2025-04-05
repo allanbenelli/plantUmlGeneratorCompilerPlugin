@@ -10,6 +10,9 @@ import kotlin.jvm.java
 
 open class PlantUmlGeneratorCompilerExtension {
     var enabled: Boolean = true
+    var outputDirectoryPath: String = ""
+    var workflowInterfaceName: String = "WorkflowInterface"
+    var workflowMethodName: String = "getActivityList"
 }
 
 class PlantUmlGeneratorGradleSubPlugin : KotlinCompilerPluginSupportPlugin {
@@ -23,11 +26,16 @@ class PlantUmlGeneratorGradleSubPlugin : KotlinCompilerPluginSupportPlugin {
     private var gradleExtension : PlantUmlGeneratorCompilerExtension = PlantUmlGeneratorCompilerExtension()
     override fun applyToCompilation(kotlinCompilation: KotlinCompilation<*>): Provider<List<SubpluginOption>> {
         gradleExtension = kotlinCompilation.target.project.extensions.findByType(PlantUmlGeneratorCompilerExtension::class.java) ?: PlantUmlGeneratorCompilerExtension()
-
+        
         return kotlinCompilation.target.project.provider {
-            val options = mutableListOf(SubpluginOption("enabled", gradleExtension.enabled.toString()))
-            options
+            listOf(
+                SubpluginOption("enabled", gradleExtension.enabled.toString()),
+                SubpluginOption("outputDirectoryPath", gradleExtension.outputDirectoryPath),
+                SubpluginOption("workflowInterfaceName", gradleExtension.workflowInterfaceName),
+                SubpluginOption("workflowMethodName", gradleExtension.workflowMethodName)
+            )
         }
+        
     }
 
     override fun apply(target: Project) {

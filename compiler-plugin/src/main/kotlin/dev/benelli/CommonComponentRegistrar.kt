@@ -2,6 +2,7 @@ package dev.benelli
 
 import com.google.auto.service.AutoService
 import dev.benelli.fir.FirPlantUmlPluginRegistrar
+import dev.benelli.fir.UmlClassChecker
 import dev.benelli.transform.ExampleIrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
@@ -23,6 +24,16 @@ class CommonComponentRegistrar : CompilerPluginRegistrar() {
         if (configuration[KEY_ENABLED] == false) {
             return
         }
+        
+        val outputPath = configuration.get(KEY_OUTPUT_DIR) ?: "build"
+        val workflowInterface = configuration.get(KEY_WORKFLOW_INTERFACE) ?: "WorkflowInterface"
+        val workflowMethod = configuration.get(KEY_WORKFLOW_METHOD) ?: "getActivityList"
+        
+        UmlClassChecker.configure(
+            outputDirPath = outputPath,
+            workflowInterfaceName = workflowInterface,
+            workflowMethodName = workflowMethod
+        )
 
         val messageCollector = configuration.get(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, MessageCollector.NONE)
         configuration.kotlinSourceRoots.forEach {
