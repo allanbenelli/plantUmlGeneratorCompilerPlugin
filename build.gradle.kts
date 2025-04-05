@@ -1,5 +1,3 @@
-import org.gradle.kotlin.dsl.libs
-
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(17))
@@ -15,7 +13,6 @@ buildscript {
     }
 
     dependencies {
-        classpath("com.vanniktech:gradle-maven-publish-plugin:0.25.3")
         classpath("dev.benelli:gradle-plugin:1.0.0")
     }
 }

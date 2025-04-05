@@ -1,6 +1,5 @@
 plugins {
-    kotlin("jvm") version("2.0.0")
-    kotlin("kapt") version("2.0.0")
+    kotlin("jvm") version("2.1.20")
     id("java-gradle-plugin")
     `maven-publish`
 }
@@ -13,13 +12,13 @@ allprojects {
     repositories {
         mavenLocal()
         mavenCentral()
-        maven("https://maven.google.com")
-        maven("https://plugins.gradle.org/m2/")
-        google()
+//        maven("https://maven.google.com")
+//        maven("https://plugins.gradle.org/m2/")
+//        google()
     }
 }
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin-api:2.0.0")
+    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin-api:2.1.20")
 }
 
 gradlePlugin {

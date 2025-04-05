@@ -7,5 +7,5 @@ includeBuild("gradle-plugin") {
     }
 }
 includeBuild("compiler-plugin")
-
 include(":app")
+
