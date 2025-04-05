@@ -6,7 +6,6 @@ import org.jetbrains.kotlin.compiler.plugin.CliOption
 import org.jetbrains.kotlin.compiler.plugin.CommandLineProcessor
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
-import kotlin.text.toBoolean
 
 @AutoService(CommandLineProcessor::class) // don't forget!
 class ExampleCommandLineProcessor : CommandLineProcessor {
@@ -15,12 +14,15 @@ class ExampleCommandLineProcessor : CommandLineProcessor {
     
     override val pluginOptions: Collection<CliOption> = listOf(
         CliOption(
-            optionName = "enabled", valueDescription = "<true|false>",
+            optionName = "enabled",
+            valueDescription = "<true|false>",
             description = "whether to enable the plugin or not"
         ),
         CliOption(
-            optionName = "outputDirectoryPath", valueDescription = "<path>",
-            description = "output path for generated PlantUML files", required = false
+            optionName = "outputDirectoryPath",
+            valueDescription = "<path>",
+            description = "output path for generated PlantUML files",
+            required = false
         ),
         CliOption(
             optionName = "workflowInterfaceName",
