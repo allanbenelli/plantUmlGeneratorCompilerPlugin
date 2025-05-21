@@ -43,7 +43,7 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
         
         val outputDir = File(outputDirPath)
         outputDir.mkdirs()
-        val output = File(outputDir, "uml-$className.puml")
+        val output = File(outputDir, "$className.puml")
         output.writeText("@startuml\nstart\n")
         
         val function = declaration.declarations

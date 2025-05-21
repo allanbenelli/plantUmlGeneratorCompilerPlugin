@@ -11,7 +11,7 @@ endswitch
 switch ((1..2).random())
 case ("1")
     :ActivitySecondWhen1();
-case ("")
+case ("else")
     :ActivitySecondWhen2();
 endswitch
 stop
