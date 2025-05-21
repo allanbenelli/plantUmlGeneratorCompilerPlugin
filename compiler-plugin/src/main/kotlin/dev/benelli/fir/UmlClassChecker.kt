@@ -163,8 +163,9 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
             is FirReturnExpression -> {
                 val returnExpr = stmt.result as? FirFunctionCall
                 if (returnExpr?.calleeReference?.name?.asString() == "buildList") {
-                    val lambda = returnExpr.argumentList.arguments.firstOrNull() as? FirAnonymousFunction
-                    val lambdaBody = lambda?.body as? FirBlock
+                    val lambda = returnExpr.argumentList.arguments.firstOrNull() as? FirAnonymousFunctionExpression
+                    val lambdaBody = lambda?.anonymousFunction?.body
+                    
                     if (lambdaBody != null) {
                         lambdaBody.statements.forEach { inner ->
                             if (inner is FirFunctionCall) {
