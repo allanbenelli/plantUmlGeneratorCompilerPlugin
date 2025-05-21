@@ -1,23 +1,10 @@
 package dev.benelli.fir
-import dev.benelli.KEY_OUTPUT_DIR
-import dev.benelli.KEY_WORKFLOW_INTERFACE
-import dev.benelli.KEY_WORKFLOW_METHOD
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirClassChecker
-import org.jetbrains.kotlin.fir.analysis.checkers.declaration.DeclarationCheckers
-import org.jetbrains.kotlin.fir.analysis.extensions.FirAdditionalCheckersExtension
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
-import org.jetbrains.kotlin.fir.expressions.FirBlock
-import org.jetbrains.kotlin.fir.expressions.FirEqualityOperatorCall
-import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
-import org.jetbrains.kotlin.fir.expressions.FirReturnExpression
-import org.jetbrains.kotlin.fir.expressions.FirStatement
-import org.jetbrains.kotlin.fir.expressions.FirWhenExpression
-import org.jetbrains.kotlin.fir.expressions.FirWhileLoop
+import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirElseIfTrueCondition
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.types.coneType
@@ -52,9 +39,7 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
             it.coneType.toString().contains(workflowInterfaceName)
         }
         
-        if (!implementsWorkflow)  {
-            return
-        }
+        if (!implementsWorkflow) return
         
         val outputDir = File(outputDirPath)
         outputDir.mkdirs()
@@ -72,27 +57,41 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
         
         val body = function.body
         if (body is FirBlock) {
-            parseFirBody(body, output, activityListName = "activities")
+            val listName = findActivityListName(body)
+            parseFirBody(body, output, listName)
         }
         
         output.appendText("stop\n@enduml\n")
     }
     
-    private fun parseFirBody(
-        body: FirBlock,
-        output: File,
-        activityListName: String,
-        indent: Int = 0
-    ) {
-        for (statement in body.statements) {
-            parseFirStatement(statement, output, activityListName, indent)
+    private fun findActivityListName(body: FirBlock): String? {
+        for (stmt in body.statements) {
+            if (stmt is FirVariable) {
+                val initializerCall = stmt.initializer as? FirFunctionCall
+                if (initializerCall?.calleeReference?.name?.asString() == "mutableListOf") {
+                    return stmt.name.asString()
+                }
+            }
+            if (stmt is FirReturnExpression) {
+                val call = stmt.result as? FirFunctionCall
+                if (call?.calleeReference?.name?.asString() == "buildList") {
+                    return null // Keine benannte Liste
+                }
+            }
+        }
+        return "activities" // Fallback
+    }
+    
+    private fun parseFirBody(body: FirBlock, output: File, activityListName: String?, indent: Int = 0) {
+        for (stmt in body.statements) {
+            parseFirStatement(stmt, output, activityListName, indent)
         }
     }
     
     private fun parseFirStatement(
         stmt: FirStatement,
         output: File,
-        activityListName: String,
+        activityListName: String?,
         indent: Int
     ) {
         val ind = "    ".repeat(indent)
@@ -100,7 +99,7 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
         when (stmt) {
             is FirWhenExpression -> {
                 if (isIfExpression(stmt)) {
-                    val condition = stmt.branches.getOrNull(0)?.condition?.source?.lighterASTNode ?: "Unknown Condition"
+                    val condition = stmt.branches.getOrNull(0)?.condition?.source?.lighterASTNode ?: "Unknown"
                     output.appendText("${ind}if ($condition?) then (yes)\n")
                     stmt.branches.getOrNull(0)?.result?.let {
                         parseFirStatement(it, output, activityListName, indent + 1)
@@ -114,7 +113,7 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
                     val subject = stmt.subject?.source?.lighterASTNode ?: "Unknown"
                     output.appendText("${ind}switch ($subject)\n")
                     stmt.branches.forEach { branch ->
-                        val cond = branch.condition.source?.lighterASTNode
+                        val cond = branch.condition.source?.lighterASTNode ?: "Unknown"
                         output.appendText("${ind}case (\"$cond\")\n")
                         parseFirStatement(branch.result, output, activityListName, indent + 1)
                     }
@@ -129,32 +128,36 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
             }
             
             is FirFunctionCall -> {
-                val receiver = stmt.explicitReceiver?.source?.lighterASTNode.toString()
                 val callee = stmt.calleeReference.name.asString()
+                val receiver = stmt.explicitReceiver?.source?.lighterASTNode?.toString()
                 
+                // Spezialfall: buildList-Lambda direkt behandeln
                 if (callee == "buildList") {
                     val lambda = stmt.argumentList.arguments.firstOrNull() as? FirAnonymousFunction
                     val lambdaBody = lambda?.body as? FirBlock
                     if (lambdaBody != null) {
-                        parseFirBody(lambdaBody, output, activityListName, indent)
+                        lambdaBody.statements.forEach { inner ->
+                            if (inner is FirFunctionCall) {
+                                val innerCallee = inner.calleeReference.name.asString()
+                                if (innerCallee == "add" || innerCallee == "plusAssign") {
+                                    val arg = inner.argumentList.arguments.firstOrNull()?.source?.lighterASTNode ?: "Unknown"
+                                    output.appendText("${ind}:$arg;\n")
+                                }
+                            }
+                        }
                     }
                     return
                 }
                 
-                if ((receiver == activityListName && callee == "add") || callee == "plusAssign") {
+                // Normale add-Aufrufe erkennen
+                val isListAdd = callee == "add" || callee == "plusAssign"
+                val matchesReceiver = (receiver == activityListName) || (receiver == null && activityListName == null)
+                
+                if (isListAdd && matchesReceiver) {
                     val arg = stmt.argumentList.arguments.firstOrNull()?.source?.lighterASTNode ?: "Unknown"
                     output.appendText("${ind}:$arg;\n")
+                    return
                 }
-                
-                
-//                if ((receiver == activityListName && callee == "add") || callee == "plusAssign") {
-//                    stmt.argumentList.arguments.forEach {
-//                        parseFirStatement(it, output, activityListName, indent)
-//                    }
-//                } else if (callee.contains("Activity") && !callee.contains("Context")){
-//                    output.appendText("${ind}:$callee;\n")
-//                }
-                
             }
             
             is FirReturnExpression -> {
@@ -163,29 +166,35 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
                     val lambda = returnExpr.argumentList.arguments.firstOrNull() as? FirAnonymousFunction
                     val lambdaBody = lambda?.body as? FirBlock
                     if (lambdaBody != null) {
-                        parseFirBody(lambdaBody, output, activityListName, indent)
+                        lambdaBody.statements.forEach { inner ->
+                            if (inner is FirFunctionCall) {
+                                val innerCallee = inner.calleeReference.name.asString()
+                                if (innerCallee == "add" || innerCallee == "plusAssign") {
+                                    val arg = inner.argumentList.arguments.firstOrNull()?.source?.lighterASTNode ?: "Unknown"
+                                    output.appendText("${ind}:$arg;\n")
+                                }
+                            }
+                        }
                     }
+                    return
                 }
             }
             
             else -> {
                 val txt = stmt.render()
-                if (txt.contains("$activityListName.add") || txt.contains("$activityListName += ")) {
+                if (activityListName != null && (txt.contains("$activityListName.add") || txt.contains("$activityListName += "))) {
                     val value = txt.substringAfter("add(").substringBefore(")").ifBlank { "Unknown" }
                     output.appendText("${ind}:$value;\n")
                 }
             }
         }
     }
-    
+
     private fun isIfExpression(whenExpr: FirWhenExpression): Boolean {
         val branches = whenExpr.branches.size
-        
-        //return whenExpr.branches.size == 2 && whenExpr.branches[1].condition is FirElseIfTrueCondition
-        
         return when (branches) {
-            1 -> (whenExpr.branches.first().condition is FirFunctionCall) == true
-            2 -> (whenExpr.branches[1].condition is FirElseIfTrueCondition) == true
+            1 -> (whenExpr.branches.first().condition is FirFunctionCall)
+            2 -> (whenExpr.branches[1].condition is FirElseIfTrueCondition)
             else -> false
         }
     }
