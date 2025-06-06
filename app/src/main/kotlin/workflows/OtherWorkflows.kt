@@ -87,24 +87,7 @@ class WhenWorkflow : WorkflowInterface {
     }
 }
 
-class TryCatchWorkflow : WorkflowInterface {
-    override fun getActivityList(): List<Activity> {
-        val activities = mutableListOf<Activity>()
-        try {
-            activities.add(ActivityTry())
-            if ((1..10).random() > 5) {
-                throw RuntimeException("Test error")
-            }
-            activities.add(ActivitySuccess())
-        } catch (e: Exception) {
-            activities.add(ActivityCatch())
-        } finally {
-            activities.add(ActivityFinally())
-        }
-        
-        return activities
-    }
-}
+
 
 class NestedWorkflow : WorkflowInterface {
     override fun getActivityList(): List<Activity> {
@@ -204,17 +187,6 @@ class AdvancedWorkflow : WorkflowInterface {
         
         for (i in 1..3) {
             activities.add(ActivityLoop(i))
-        }
-        
-        try {
-            if ((1..10).random() > 5) {
-                throw Exception("Error")
-            }
-            activities.add(ActivitySuccess())
-        } catch (e: Exception) {
-            activities.add(ActivityError())
-        } finally {
-            activities.add(ActivityCleanup())
         }
         
         activities.add(ActivityEnd())

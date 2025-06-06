@@ -6,9 +6,9 @@ import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirClassChecker
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.expressions.impl.FirElseIfTrueCondition
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.types.coneType
-import org.jetbrains.kotlin.psi
 import java.io.File
 
 object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
@@ -129,9 +129,7 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
                     val subject = localVars[subjectRaw] ?: subjectRaw
                     output.appendText("${ind}switch ($subject)\n")
                     stmt.branches.forEachIndexed { idx, branch ->
-                        val cond = branch.condition.source?.psi?.text
-                            ?: branch.condition.source?.lighterASTNode?.toString()
-                            ?: if (idx == stmt.branches.lastIndex) "else" else "Unknown"
+                        val cond = renderCondition(branch.condition)
                         output.appendText("${ind}case (\"$cond\")\n")
                         parseFirStatement(branch.result, output, activityListName, indent + 1, localVars)
                     }
@@ -150,16 +148,16 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
                             next is FirWhileLoop
                     
                     if (forLoopMatch) {
-                        val iteratorVar = curr as FirVariable
-                        val whileLoop = next as FirWhileLoop
-                        val loopBody = whileLoop.block as? FirBlock
-                        val loopVar = loopBody?.statements?.firstOrNull() as? FirVariable
+                        val iteratorVar = curr
+                        val whileLoop = next
+                        val loopBody = whileLoop.block
+                        val loopVar = loopBody.statements.firstOrNull() as? FirVariable
                         val loopVarName = loopVar?.name?.asString() ?: "i"
                         val loopRange = (iteratorVar.initializer as FirFunctionCall)
                             .explicitReceiver?.source?.lighterASTNode?.toString() ?: "?"
                         
                         output.appendText("${ind}repeat :for $loopVarName in ($loopRange);\n")
-                        loopBody?.statements.orEmpty().drop(1).forEach {
+                        loopBody.statements.drop(1).forEach {
                             parseFirStatement(it, output, activityListName, indent + 1, localVars)
                         }
                         output.appendText("${ind}repeat while (next $loopVarName in ($loopRange)) is (true)\n")
@@ -220,6 +218,14 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
                 }
             }
         }
+    }
+    private fun renderCondition(cond: FirExpression): String = when (cond) {
+        is FirBooleanOperatorExpression -> listOfNotNull(
+            renderCondition(cond.leftOperand),
+            renderCondition(cond.rightOperand)
+        ).joinToString(", ")
+        is FirElseIfTrueCondition -> "else"
+        else -> cond.source?.lighterASTNode?.toString() ?: "Unknown"
     }
     
     private fun isIfExpression(whenExpr: FirWhenExpression): Boolean {
