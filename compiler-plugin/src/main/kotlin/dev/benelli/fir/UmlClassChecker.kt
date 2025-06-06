@@ -112,8 +112,8 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
                 } else {
                     val subject = stmt.subject?.source?.lighterASTNode ?: "Unknown"
                     output.appendText("${ind}switch ($subject)\n")
-                    stmt.branches.forEach { branch ->
-                        val cond = branch.condition.source?.lighterASTNode ?: "Unknown"
+                    stmt.branches.forEachIndexed { idx, branch ->
+                        val cond = branch.condition.source?.lighterASTNode ?: if (idx == stmt.branches.lastIndex) "else" else "Unknown"
                         output.appendText("${ind}case (\"$cond\")\n")
                         parseFirStatement(branch.result, output, activityListName, indent + 1)
                     }
@@ -122,14 +122,45 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
             }
             
             is FirBlock -> {
-                stmt.statements.forEach {
-                    parseFirStatement(it, output, activityListName, indent)
+                val stmts = stmt.statements
+                var i = 0
+                
+                while (i < stmts.size) {
+                    val (curr, next) = stmts.getOrNull(i) to stmts.getOrNull(i + 1)
+                    
+                    val forLoopMatch = curr is FirVariable &&
+                            curr.initializer is FirFunctionCall &&
+                            (curr.initializer as FirFunctionCall).calleeReference.name.asString() == "iterator" &&
+                            next is FirWhileLoop
+                    
+                    if (forLoopMatch) {
+                        val iteratorVar = curr as FirVariable
+                        val whileLoop = next as FirWhileLoop
+                        
+                        val loopBody = whileLoop.block as? FirBlock
+                        val loopVar = loopBody?.statements?.firstOrNull() as? FirVariable
+                        val loopVarName = loopVar?.name?.asString() ?: "i"
+                        val loopRange = (iteratorVar.initializer as FirFunctionCall)
+                            .explicitReceiver?.source?.lighterASTNode?.toString() ?: "?"
+                        
+                        output.appendText("${ind}repeat :for $loopVarName in ($loopRange);\n")
+                        loopBody?.statements.orEmpty().drop(1).forEach {
+                            parseFirStatement(it, output, activityListName, indent + 1)
+                        }
+                        output.appendText("${ind}repeat while (next $loopVarName in ($loopRange)) is (true)\n")
+                        
+                        i += 2
+                    } else {
+                        parseFirStatement(curr ?: return, output, activityListName, indent)
+                        i++
+                    }
                 }
             }
+
             
             is FirWhileLoop -> {
                 val cond = stmt.condition.source?.lighterASTNode ?: stmt.condition.render()
-                output.appendText("${ind}while ($cond)\n")
+                output.appendText("${ind}while ($cond) is (true)\n")
                 parseFirStatement(stmt.block, output, activityListName, indent + 1)
                 output.appendText("${ind}endwhile\n")
             }

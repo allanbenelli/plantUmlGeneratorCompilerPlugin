@@ -1,7 +1,7 @@
 @startuml
 start
 :ActivityStart();
-while (counter < 5)
+while (counter < 5) is (true)
     :ActivityLoop(counter);
 endwhile
 :ActivityEnd();
