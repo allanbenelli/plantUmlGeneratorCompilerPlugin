@@ -13,6 +13,8 @@ plugins {
 
 }
 
+val libs = project.extensions.getByType<org.gradle.accessors.dm.LibrariesForLibs>()
+
 allprojects {
     repositories {
         mavenLocal()
@@ -26,13 +28,11 @@ allprojects {
 
 group = "dev.benelli"
 version = "0.0.1"
-val autoService = "1.1.1"
-val autoServiceKsp = "1.2.0"
 dependencies {
-    compileOnly("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.1.0")
-    ksp("dev.zacsweers.autoservice:auto-service-ksp:$autoServiceKsp")
-    implementation("com.google.auto.service:auto-service-annotations:$autoService")
-    
+    compileOnly(libs.kotlin.compiler.embeddable)
+    ksp(libs.auto.service.ksp)
+    implementation(libs.auto.service)
+
 }
 
 publishing {
@@ -87,13 +87,15 @@ publishing {
     }
 }
 
+val javaVersion = providers.gradleProperty("javaVersion").orNull?.toInt() ?: 17
+
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(javaVersion)
 }
 
 
 tasks.withType<KotlinCompile> {
-    compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
+    compilerOptions.jvmTarget.set(JvmTarget.fromTarget(javaVersion.toString()))
 }
 tasks.withType<KotlinCompilationTask<*>>().configureEach {
     compilerOptions.freeCompilerArgs.add("-opt-in=org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi")
