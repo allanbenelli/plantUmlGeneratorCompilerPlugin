@@ -1,6 +1,6 @@
 @startuml
 start
-switch (status)
+switch (listOf("NEW", "PROCESSING", "COMPLETED").random())
 case (""NEW"")
     :ActivityNew();
     :ActivityInit();

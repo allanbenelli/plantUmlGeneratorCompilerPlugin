@@ -5,9 +5,9 @@ import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirClassChecker
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.expressions.*
-import org.jetbrains.kotlin.fir.expressions.impl.FirElseIfTrueCondition
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.types.coneType
+import org.jetbrains.kotlin.psi
 import java.io.File
 
 
@@ -82,9 +82,15 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
         return "activities" // Fallback
     }
     
-    private fun parseFirBody(body: FirBlock, output: File, activityListName: String?, indent: Int = 0) {
+    private fun parseFirBody(
+        body: FirBlock,
+        output: File,
+        activityListName: String?,
+        indent: Int = 0,
+        localVars: MutableMap<String, String> = mutableMapOf()
+    ) {
         for (stmt in body.statements) {
-            parseFirStatement(stmt, output, activityListName, indent)
+            parseFirStatement(stmt, output, activityListName, indent, localVars)
         }
     }
     
@@ -92,30 +98,41 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
         stmt: FirStatement,
         output: File,
         activityListName: String?,
-        indent: Int
+        indent: Int,
+        localVars: MutableMap<String, String>
     ) {
         val ind = "    ".repeat(indent)
-        
+
         when (stmt) {
+            is FirVariable -> {
+                val varName = stmt.name.asString()
+                val initText = stmt.initializer?.source?.lighterASTNode?.toString()
+                    ?: stmt.initializer?.render()
+                    ?: "Unknown"
+                localVars[varName] = initText
+            }
             is FirWhenExpression -> {
                 if (isIfExpression(stmt)) {
                     val condition = stmt.branches.getOrNull(0)?.condition?.source?.lighterASTNode ?: "Unknown"
                     output.appendText("${ind}if ($condition?) then (yes)\n")
                     stmt.branches.getOrNull(0)?.result?.let {
-                        parseFirStatement(it, output, activityListName, indent + 1)
+                        parseFirStatement(it, output, activityListName, indent + 1, localVars)
                     }
                     stmt.branches.getOrNull(1)?.result?.let {
                         output.appendText("${ind}else (no)\n")
-                        parseFirStatement(it, output, activityListName, indent + 1)
+                        parseFirStatement(it, output, activityListName, indent + 1, localVars)
                     }
                     output.appendText("${ind}endif\n")
                 } else {
-                    val subject = stmt.subject?.source?.lighterASTNode ?: "Unknown"
+                    val subjectRaw = stmt.subject?.source?.lighterASTNode?.toString() ?: "Unknown"
+                    val subject = localVars[subjectRaw] ?: subjectRaw
                     output.appendText("${ind}switch ($subject)\n")
                     stmt.branches.forEachIndexed { idx, branch ->
-                        val cond = branch.condition.source?.lighterASTNode ?: if (idx == stmt.branches.lastIndex) "else" else "Unknown"
+                        val cond = branch.condition.source?.psi?.text
+                            ?: branch.condition.source?.lighterASTNode?.toString()
+                            ?: if (idx == stmt.branches.lastIndex) "else" else "Unknown"
                         output.appendText("${ind}case (\"$cond\")\n")
-                        parseFirStatement(branch.result, output, activityListName, indent + 1)
+                        parseFirStatement(branch.result, output, activityListName, indent + 1, localVars)
                     }
                     output.appendText("${ind}endswitch\n")
                 }
@@ -145,13 +162,13 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
                         
                         output.appendText("${ind}repeat :for $loopVarName in ($loopRange);\n")
                         loopBody?.statements.orEmpty().drop(1).forEach {
-                            parseFirStatement(it, output, activityListName, indent + 1)
+                            parseFirStatement(it, output, activityListName, indent + 1, localVars)
                         }
                         output.appendText("${ind}repeat while (next $loopVarName in ($loopRange)) is (true)\n")
                         
                         i += 2
                     } else {
-                        parseFirStatement(curr ?: return, output, activityListName, indent)
+                        parseFirStatement(curr ?: return, output, activityListName, indent, localVars)
                         i++
                     }
                 }
@@ -161,7 +178,7 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
             is FirWhileLoop -> {
                 val cond = stmt.condition.source?.lighterASTNode ?: stmt.condition.render()
                 output.appendText("${ind}while ($cond) is (true)\n")
-                parseFirStatement(stmt.block, output, activityListName, indent + 1)
+                parseFirStatement(stmt.block, output, activityListName, indent + 1, localVars)
                 output.appendText("${ind}endwhile\n")
             }
             
@@ -218,6 +235,7 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
                     return
                 }
             }
+
             
             else -> {
                 val txt = stmt.render()
@@ -230,11 +248,6 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
     }
 
     private fun isIfExpression(whenExpr: FirWhenExpression): Boolean {
-        val branches = whenExpr.branches.size
-        return when (branches) {
-            1 -> (whenExpr.branches.first().condition is FirFunctionCall)
-            2 -> (whenExpr.branches[1].condition is FirElseIfTrueCondition)
-            else -> false
-        }
+        return whenExpr.subject == null
     }
 }

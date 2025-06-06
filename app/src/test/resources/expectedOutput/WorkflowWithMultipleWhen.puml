@@ -1,11 +1,11 @@
 @startuml
 start
-switch (condition)
+switch ((1..4).random())
 case ("1, 2")
     :ActivityCondition12();
 case ("3")
     :ActivityCondition3();
-case ("")
+case ("else")
     :ActivityConditionElse();
 endswitch
 switch ((1..2).random())

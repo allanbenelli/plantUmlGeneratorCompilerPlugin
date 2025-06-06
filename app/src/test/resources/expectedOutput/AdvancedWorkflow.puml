@@ -11,12 +11,12 @@ case ("1")
     :ActivityPath1B();
 case ("2")
     :ActivityPath2();
-case ("")
+case ("else")
     :ActivityPath3();
 endswitch
-repeat (1..3 as i)
+repeat :for i in (1..3);
     :ActivityLoop(i);
-endrepeat
+repeat while (next i in (1..3)) is (true)
 :ActivityEnd();
 stop
 @enduml
