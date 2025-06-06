@@ -113,8 +113,8 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
                     val subject = stmt.subject?.source?.lighterASTNode ?: "Unknown"
                     output.appendText("${ind}switch ($subject)\n")
                     stmt.branches.forEach { branch ->
-                        val cond = branch.condition.source?.lighterASTNode ?: "Unknown"
-                        output.appendText("${ind}case (\"$cond\")\n")
+                        val condText = renderWhenCondition(branch.condition)
+                        output.appendText("${ind}case (\"$condText\")\n")
                         parseFirStatement(branch.result, output, activityListName, indent + 1)
                     }
                     output.appendText("${ind}endswitch\n")
@@ -137,19 +137,13 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
                     val lambdaBody = lambda?.body as? FirBlock
                     if (lambdaBody != null) {
                         lambdaBody.statements.forEach { inner ->
-                            if (inner is FirFunctionCall) {
-                                val innerCallee = inner.calleeReference.name.asString()
-                                if (innerCallee == "add" || innerCallee == "plusAssign") {
-                                    val arg = inner.argumentList.arguments.firstOrNull()?.source?.lighterASTNode ?: "Unknown"
-                                    output.appendText("${ind}:$arg;\n")
-                                }
-                            }
+                            parseFirStatement(inner, output, null, indent)
                         }
                     }
                     return
                 }
                 
-                // Normale add-Aufrufe erkennen
+                // Normale add- oder +=-Aufrufe
                 val isListAdd = callee == "add" || callee == "plusAssign"
                 val matchesReceiver = (receiver == activityListName) || (receiver == null && activityListName == null)
                 
@@ -161,24 +155,7 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
             }
             
             is FirReturnExpression -> {
-                val returnExpr = stmt.result as? FirFunctionCall
-                if (returnExpr?.calleeReference?.name?.asString() == "buildList") {
-                    val lambda = returnExpr.argumentList.arguments.firstOrNull() as? FirAnonymousFunctionExpression
-                    val lambdaBody = lambda?.anonymousFunction?.body
-                    
-                    if (lambdaBody != null) {
-                        lambdaBody.statements.forEach { inner ->
-                            if (inner is FirFunctionCall) {
-                                val innerCallee = inner.calleeReference.name.asString()
-                                if (innerCallee == "add" || innerCallee == "plusAssign") {
-                                    val arg = inner.argumentList.arguments.firstOrNull()?.source?.lighterASTNode ?: "Unknown"
-                                    output.appendText("${ind}:$arg;\n")
-                                }
-                            }
-                        }
-                    }
-                    return
-                }
+                parseFirStatement(stmt.result, output, activityListName, indent)
             }
             
             else -> {
@@ -190,7 +167,30 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
             }
         }
     }
+    
+    private fun renderWhenCondition(condition: FirExpression): String {
+        return when (condition) {
+            is FirElseIfTrueCondition -> "else"
+            is FirFunctionCall -> {
+                condition.arguments.joinToString(", ") { arg ->
+                    try {
+                        arg.source?.lighterASTNode?.toString() ?: arg.render()
+                    } catch (_: Exception) {
+                        arg.render()
+                    }
+                }
+            }
+            is FirPropertyAccessExpression -> {
+                condition.source?.lighterASTNode?.toString() ?: condition.render()
+            }
+            else -> {
+                condition.source?.lighterASTNode?.toString() ?: condition.render()
+            }
+        }
+    }
 
+    
+    
     private fun isIfExpression(whenExpr: FirWhenExpression): Boolean {
         val branches = whenExpr.branches.size
         return when (branches) {
