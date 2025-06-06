@@ -1,7 +1,28 @@
+import org.gradle.api.publish.PublishingExtension
+
+val javaVersion = providers.gradleProperty("javaVersion").orNull?.toInt() ?: 17
+
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
+        languageVersion.set(JavaLanguageVersion.of(javaVersion))
     }
+}
+
+subprojects {
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(javaVersion.toString()))
+    }
+
+    plugins.withId("maven-publish") {
+        extensions.configure<PublishingExtension> {
+            repositories { mavenLocal() }
+        }
+    }
+}
+
+tasks.register("publishAllToMavenLocal") {
+    dependsOn(gradle.includedBuild("compiler-plugin").task("publishToMavenLocal"))
+    dependsOn(gradle.includedBuild("gradle-plugin").task("publishToMavenLocal"))
 }
 
 buildscript {
