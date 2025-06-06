@@ -127,6 +127,13 @@ object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
                 }
             }
             
+            is FirWhileLoop -> {
+                val cond = stmt.condition.source?.lighterASTNode ?: stmt.condition.render()
+                output.appendText("${ind}while ($cond)\n")
+                parseFirStatement(stmt.block, output, activityListName, indent + 1)
+                output.appendText("${ind}endwhile\n")
+            }
+            
             is FirFunctionCall -> {
                 val callee = stmt.calleeReference.name.asString()
                 val receiver = stmt.explicitReceiver?.source?.lighterASTNode?.toString()
