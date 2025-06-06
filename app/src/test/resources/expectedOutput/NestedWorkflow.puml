@@ -8,14 +8,14 @@ if ((1..10).random() > 5?) then (yes)
         :ActivityX();
     case ("2")
         :ActivityY();
-    case ("")
+    case ("else")
         :ActivityZ();
     endswitch
 else (no)
     :ActivityB();
-    repeat (1..2 as i)
+    repeat :for i in (1..2);
         :ActivityLoop(i);
-    endrepeat
+    repeat while (next i in (1..2)) is (true)
 endif
 :ActivityEnd();
 stop
