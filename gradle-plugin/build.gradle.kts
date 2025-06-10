@@ -4,6 +4,20 @@ plugins {
     `maven-publish`
 }
 
+val libs = project.extensions.getByType<org.gradle.accessors.dm.LibrariesForLibs>()
+
+val javaVersion = providers.gradleProperty("javaVersion").orNull?.toInt() ?: 17
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(javaVersion))
+    }
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+    compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(javaVersion.toString()))
+}
+
 group = "dev.benelli"
 version = "1.0.0"
 
@@ -18,7 +32,7 @@ allprojects {
     }
 }
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin-api:2.1.20")
+    implementation(libs.kotlin.gradle.plugin.api)
 }
 
 gradlePlugin {

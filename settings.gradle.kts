@@ -1,5 +1,11 @@
 rootProject.name = "plantUmlGeneratorCompilerPlugin"
 
+dependencyResolutionManagement {
+    versionCatalogs {
+        create("libs") { from(files("gradle/libs.versions.toml")) }
+    }
+}
+
 
 includeBuild("gradle-plugin") {
     dependencySubstitution {
