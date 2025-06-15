@@ -3,7 +3,8 @@
 
 ## Usage
 
-* Inside the project folder run `./gradlew clean build` 
+* Inside the project folder run `./gradlew clean build`
+* Publish the compiler and Gradle plugin to your local Maven repository with `./gradlew publishToMavenLocal`
 
 The plugin is only active when the build cache is changed. This is why you need to run "clean" before building, when you want to see the log output again.
 
