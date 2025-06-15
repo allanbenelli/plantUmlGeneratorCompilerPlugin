@@ -12,8 +12,6 @@ configure<dev.benelli.gradle.PlantUmlGeneratorCompilerExtension> {
     workflowMethodName = "getActivityList"
 }
 
-group = "dev.benelli"
-version = "unspecified"
 
 repositories {
     mavenCentral()

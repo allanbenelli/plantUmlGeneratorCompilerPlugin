@@ -20,7 +20,7 @@ class PlantUmlGeneratorGradleSubPlugin : KotlinCompilerPluginSupportPlugin {
     companion object {
         const val SERIALIZATION_GROUP_NAME = "dev.benelli"
         const val ARTIFACT_NAME = "compiler-plugin"
-        const val VERSION_NUMBER = "0.0.1"
+        val VERSION_NUMBER: String = PlantUmlGeneratorGradleSubPlugin::class.java.`package`.implementationVersion ?: "0.0.1"
     }
 
     private var gradleExtension : PlantUmlGeneratorCompilerExtension = PlantUmlGeneratorCompilerExtension()

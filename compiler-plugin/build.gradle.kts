@@ -1,6 +1,8 @@
+
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.util.*
 
 
 plugins {
@@ -24,8 +26,12 @@ allprojects {
 }
 
 
+val rootProperties = Properties().apply {
+    load(rootDir.parentFile.resolve("gradle.properties").inputStream())
+}
+
 group = "dev.benelli"
-version = "0.0.1"
+version = rootProperties["pluginVersion"] as String
 dependencies {
     compileOnly(libs.kotlin.compiler.embeddable)
     ksp(libs.auto.service.ksp)
@@ -87,6 +93,10 @@ publishing {
 
 kotlin {
     jvmToolchain(17)
+}
+
+tasks.withType<Jar> {
+    manifest.attributes["Implementation-Version"] = project.version
 }
 
 
