@@ -5,6 +5,7 @@ java {
 }
 
 buildscript {
+    val pluginVersion: String by project
 
     repositories {
         mavenLocal()
@@ -13,7 +14,7 @@ buildscript {
     }
 
     dependencies {
-        classpath("dev.benelli:gradle-plugin:1.0.0")
+        classpath("dev.benelli:gradle-plugin:$pluginVersion")
     }
 }
 plugins {
@@ -23,12 +24,12 @@ plugins {
 
 apply(plugin = "compiler.gradleplugin.plantumlgenerator")
 
-System.setProperty("kotlin.compiler.execution.strategy", "in-process") // For debugging
 
 
+val groupId: String by project
 
 allprojects {
-    group = "dev.benelli"
+    group = groupId
     description = "Kotlin compiler plugin for generating PlantUml diagrams"
     version = properties["version"] as String
     repositories {

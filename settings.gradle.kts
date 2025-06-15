@@ -1,9 +1,10 @@
 rootProject.name = "plantUmlGeneratorCompilerPlugin"
 
+val pluginVersion: String by settings
 
 includeBuild("gradle-plugin") {
     dependencySubstitution {
-        substitute(module("dev.benelli:gradle-plugin:1.0.0")).using(project(":"))
+        substitute(module("dev.benelli:gradle-plugin:$pluginVersion")).using(project(":"))
     }
 }
 includeBuild("compiler-plugin")

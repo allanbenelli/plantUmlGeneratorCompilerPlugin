@@ -4,8 +4,14 @@ plugins {
     `maven-publish`
 }
 
+import java.util.Properties
+
+val rootProperties = Properties().apply {
+    load(rootDir.parentFile.resolve("gradle.properties").inputStream())
+}
+
 group = "dev.benelli"
-version = "1.0.0"
+version = rootProperties["pluginVersion"] as String
 
 
 allprojects {
@@ -29,6 +35,10 @@ gradlePlugin {
             implementationClass = "dev.benelli.gradle.PlantUmlGeneratorGradleSubPlugin"
         }
     }
+}
+
+tasks.withType<Jar> {
+    manifest.attributes["Implementation-Version"] = project.version
 }
 
 tasks.register("sourcesJar", Jar::class) {
