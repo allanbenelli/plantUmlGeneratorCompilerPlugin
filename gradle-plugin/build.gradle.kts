@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version("2.1.20")
+    alias { libs.plugins.kotlin.jvm }
     id("java-gradle-plugin")
     `maven-publish`
 }
@@ -18,7 +18,7 @@ allprojects {
     }
 }
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin-api:2.1.20")
+    implementation(libs.kotlin.gradle.plugin.api)
 }
 
 gradlePlugin {

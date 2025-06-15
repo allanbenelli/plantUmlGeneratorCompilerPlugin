@@ -2,10 +2,10 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
+
 plugins {
-    kotlin("jvm") version("2.1.20")
-    //kotlin("kapt") version("2.1.20")
-    //id("com.vanniktech.maven.publish") version("0.23.1")
+    alias(libs.plugins.kotlin.jvm)
+    
     id("com.google.devtools.ksp") version "2.1.20-1.0.32"
     
     `maven-publish`
@@ -26,12 +26,10 @@ allprojects {
 
 group = "dev.benelli"
 version = "0.0.1"
-val autoService = "1.1.1"
-val autoServiceKsp = "1.2.0"
 dependencies {
-    compileOnly("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.1.0")
-    ksp("dev.zacsweers.autoservice:auto-service-ksp:$autoServiceKsp")
-    implementation("com.google.auto.service:auto-service-annotations:$autoService")
+    compileOnly(libs.kotlin.compiler.embeddable)
+    ksp(libs.auto.service.ksp)
+    implementation(libs.auto.service)
     
 }
 
