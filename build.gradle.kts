@@ -41,3 +41,10 @@ allprojects {
     }
 }
 
+tasks.register("publishToMavenLocal") {
+    dependsOn(
+        gradle.includedBuild("compiler-plugin").task(":publishToMavenLocal"),
+        gradle.includedBuild("gradle-plugin").task(":publishToMavenLocal")
+    )
+}
+
