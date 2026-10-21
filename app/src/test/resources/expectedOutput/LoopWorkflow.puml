@@ -1,8 +1,8 @@
 @startuml
 start
-repeat :for i in (1..3);
+while (for i in (1..3)) is (next)
     :ActivityLoop(i);
-repeat while (next i in (1..3)) is (true)
+endwhile (done)
 while (counter < 2) is (true)
     :ActivityWhileLoop(counter);
 endwhile

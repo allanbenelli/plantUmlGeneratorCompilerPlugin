@@ -1,0 +1,6 @@
+@startuml
+start
+:ActivityStart();
+:ActivityEnd();
+stop
+@enduml
