@@ -126,3 +126,13 @@ tasks.register<Zip>("portableBundle") {
     isPreserveFileTimestamps = false
     isReproducibleFileOrder = true
 }
+
+// Publish both included builds, including the Gradle plugin marker, in one command.
+tasks.register("publishToMavenLocal") {
+    group = "publishing"
+    description = "Install the Gradle adapter and compiler plugin into the local Maven repository."
+    dependsOn(
+        gradle.includedBuild("gradle-plugin").task(":publishToMavenLocal"),
+        gradle.includedBuild("compiler-plugin").task(":publishToMavenLocal")
+    )
+}

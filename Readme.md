@@ -4,14 +4,31 @@ Generate activity diagrams from Kotlin workflow definitions while compiling. The
 compiler plugin analyses source code; it does not execute workflows. PlantUML
 renders the generated `.puml` files into images separately.
 
-## Build and test
+## Local installation (recommended for initial use)
 
-Requires JDK 25. The tested toolchain is Gradle 9.3.0 and Kotlin 2.3.21. From this repository:
+Requires JDK 25. The tested toolchain is Gradle 9.3.0 and Kotlin 2.3.21.
+From your local checkout:
 
 ```sh
-./gradlew clean build :compiler-plugin:test
+./gradlew build :compiler-plugin:test publishToMavenLocal
+```
+
+This builds and installs both plugins into the local Maven repository (normally
+`~/.m2/repository`). No Python, ZIP transfer or Maven installation is needed.
+Configure `mavenLocal()` for plugin and compiler-plugin resolution in the target
+project, then apply version `2.0.0` and select your interface with `workflowDocs`.
+
+See [local installation](docs/local-installation.md) for the exact target-project
+settings and build snippets. A standalone example is available:
+
+```sh
+./gradlew -p examples/local-install generateWorkflowDocumentation checkWorkflowDocumentation
+```
+
+To generate diagrams for this repository's test fixtures:
+
+```sh
 ./gradlew :app:generateWorkflowDocumentation
-python3 scripts/check-build-lifecycle.py
 ```
 
 The example application's output is in:
@@ -46,16 +63,11 @@ each module independently. The old `plantUmlGeneratorCompilerExtension` name and
 `workflowInterfaceName` / `workflowMethodName` / `outputDirectoryPath` setters remain
 as compatibility aliases, but now require a fully qualified interface name too.
 
-## Manual installation / local repository
+## Optional transfer to another machine
 
 ```sh
 ./gradlew portableBundle
-python3 scripts/check-portable-install.py
 ```
-
-The portable-install test uses `--offline` and needs the Gradle/Kotlin prerequisites
-already cached. On an unrestricted development machine, pass `--bootstrap` to allow
-one normal dependency-resolution build before the offline test.
 
 This builds `build/distributions/plantuml-workflow-plugin-2.0.0.zip`: a local Maven
 repository with both plugin JARs, metadata, sources, their small runtime dependency
@@ -129,3 +141,18 @@ Next priorities are real production regression fixtures, richer data-flow and
 parameter binding, structured source locations, and compiler-version compatibility
 tests. A declarative workflow DSL can be evaluated separately without forcing a
 migration of existing workflows.
+
+## Development-only integration checks
+
+Python is used only for the optional maintainer checks below. It is not required
+to build, install or use the plugin, including the portable ZIP installation.
+
+```sh
+python3 scripts/check-build-lifecycle.py
+./gradlew portableBundle
+python3 scripts/check-portable-install.py
+```
+
+The portable-install test uses `--offline` and needs Gradle/Kotlin prerequisites
+already cached. On a development machine with approved network access, pass
+`--bootstrap` to permit one dependency-resolution build before the offline test.

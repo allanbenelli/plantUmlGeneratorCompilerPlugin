@@ -1,5 +1,9 @@
 # Manual installation across trust boundaries
 
+For a local checkout and a target project on the same machine, prefer
+the simpler Maven Local workflow described in the project README. This ZIP workflow is
+optional and intended for transfer to another machine.
+
 This distribution is a **local Maven repository**, not an executable installer.
 Transfer and approve the ZIP through your organisation's normal process. No GitHub
 checkout, external publication or Maven server is needed at the destination.
