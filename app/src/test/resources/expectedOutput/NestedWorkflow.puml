@@ -13,9 +13,9 @@ if ((1..10).random() > 5?) then (yes)
     endswitch
 else (no)
     :ActivityB();
-    repeat :for i in (1..2);
+    while (for i in (1..2)) is (next)
         :ActivityLoop(i);
-    repeat while (next i in (1..2)) is (true)
+    endwhile (done)
 endif
 :ActivityEnd();
 stop

@@ -1,109 +1,55 @@
-
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import java.util.*
-
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
-    
-    id("com.google.devtools.ksp") version "2.1.20-1.0.32"
-    
     `maven-publish`
-    signing
-
 }
-
-allprojects {
-    repositories {
-        mavenLocal()
-        mavenCentral()
-//        maven("https://maven.google.com")
-//        maven("https://plugins.gradle.org/m2/")
-//        google()
-    }
-}
-
 
 val rootProperties = Properties().apply {
     load(rootDir.parentFile.resolve("gradle.properties").inputStream())
 }
-
 group = "dev.benelli"
-version = rootProperties["pluginVersion"] as String
+version = rootProperties.getProperty("pluginVersion")
+repositories { mavenCentral() }
+kotlin { jvmToolchain(25) }
+java { withSourcesJar() }
+
 dependencies {
     compileOnly(libs.kotlin.compiler.embeddable)
-    ksp(libs.auto.service.ksp)
-    implementation(libs.auto.service)
-    
+    testImplementation(kotlin("test"))
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.named<KotlinCompile>("compileKotlin") {
+    compilerOptions.freeCompilerArgs.addAll("-opt-in=org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi", "-Xcontext-parameters")
+}
+tasks.test { useJUnitPlatform() }
+tasks.withType<Jar>().configureEach {
+    manifest.attributes["Implementation-Version"] = project.version
+    manifest.attributes["Kotlin-Compiler-Version"] = libs.versions.kotlin.get()
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
 }
 
 publishing {
     publications {
-        create<MavenPublication>("default") {
+        create<MavenPublication>("compilerPlugin") {
             from(components["java"])
-
             pom {
-                name.set("compiler-plugin")
-                description.set("Plant UML Generator Compiler Plugin")
+                name.set("PlantUML workflow compiler plugin")
+                description.set("Generate workflow documentation during Kotlin compilation.")
                 url.set("https://github.com/allanbenelli/plantUmlGeneratorCompilerPlugin")
-
-                licenses {
-                    license {
-                        name.set("Apache License 2.0")
-                        url.set("https://github.com/allanbenelli/plantUmlGeneratorCompilerPlugin/blob/master/LICENSE.txt")
-                    }
-                }
-                scm {
-                    url.set("https://github.com/allanbenelli/plantUmlGeneratorCompilerPlugin")
-                    connection.set("scm:git:git://github.com/allanbenelli/plantUmlGeneratorCompilerPlugin.git")
-                }
-                developers {
-                    developer {
-                        name.set("Allan Benelli")
-                        url.set("https://github.com/allanbenelli")
-                    }
-                }
+                licenses { license { name.set("Apache License 2.0"); url.set("https://www.apache.org/licenses/LICENSE-2.0") } }
             }
         }
     }
-
     repositories {
-        if (
-            hasProperty("sonatypeUsername") &&
-            hasProperty("sonatypePassword") &&
-            hasProperty("sonatypeSnapshotUrl") &&
-            hasProperty("sonatypeReleaseUrl")
-        ) {
-            maven {
-                val url = when {
-                    "SNAPSHOT" in version.toString() -> property("sonatypeSnapshotUrl")
-                    else -> property("sonatypeReleaseUrl")
-                } as String
-                setUrl(url)
-                credentials {
-                    username = property("sonatypeUsername") as String
-                    password = property("sonatypePassword") as String
-                }
-            }
+        maven {
+            name = "portable"
+            url = uri(rootDir.parentFile.resolve("build/portable-repository"))
         }
     }
 }
-
-kotlin {
-    jvmToolchain(17)
-}
-
-tasks.withType<Jar> {
-    manifest.attributes["Implementation-Version"] = project.version
-}
-
-
-tasks.withType<KotlinCompile> {
-    compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
-}
-tasks.withType<KotlinCompilationTask<*>>().configureEach {
-    compilerOptions.freeCompilerArgs.add("-opt-in=org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi")
-}
-

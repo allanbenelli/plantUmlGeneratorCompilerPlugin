@@ -1,0 +1,14 @@
+@startuml
+start
+switch (true)
+case ("System.currentTimeMillis() < 0")
+    :ActivityA();
+case ("System.currentTimeMillis() == 0L")
+    :ActivityB();
+case ("System.currentTimeMillis() > 10")
+    :ActivityC();
+case ("else")
+    :ActivityD();
+endswitch
+stop
+@enduml

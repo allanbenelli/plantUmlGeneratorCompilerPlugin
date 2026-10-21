@@ -1,234 +1,87 @@
+@file:OptIn(org.jetbrains.kotlin.fir.symbols.SymbolInternals::class, org.jetbrains.kotlin.fir.scopes.ScopeFunctionRequiresPrewarm::class)
+
 package dev.benelli.fir
 
+import dev.benelli.model.PlantUmlRenderer
+import dev.benelli.model.Workflow
+import dev.benelli.model.WorkflowNode
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.unwrapFakeOverrides
+import org.jetbrains.kotlin.fir.isIntersectionOverride
+import org.jetbrains.kotlin.fir.scopes.getDirectOverriddenFunctionsWithBaseScope
+import org.jetbrains.kotlin.fir.scopes.impl.filterOutOverriddenFunctions
+import org.jetbrains.kotlin.fir.analysis.checkers.unsubstitutedScope
+import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirClassChecker
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.expressions.*
-import org.jetbrains.kotlin.fir.expressions.impl.FirElseIfTrueCondition
-import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.types.coneType
+import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
+import org.jetbrains.kotlin.descriptors.ClassKind
+import org.jetbrains.kotlin.descriptors.Modality
 import java.io.File
 
-object UmlClassChecker : FirClassChecker(MppCheckerKind.Common) {
-    private var outputDirPath: String = "build/generated/plantUml"
-    private var workflowInterfaceName: String = "WorkflowInterface"
-    private var workflowMethodName: String = "getActivityList"
-    
-    fun configure(
-        outputDirPath: String,
-        workflowInterfaceName: String,
-        workflowMethodName: String
-    ) {
-        this.outputDirPath = outputDirPath
-        this.workflowInterfaceName = workflowInterfaceName
-        this.workflowMethodName = workflowMethodName
-    }
-    
-    override fun check(
-        declaration: FirClass,
-        context: CheckerContext,
-        reporter: DiagnosticReporter
-    ) {
-        if (declaration !is FirRegularClass) return
-        
-        val className = declaration.name.asString()
-        
-        val implementsWorkflow = declaration.superTypeRefs.any {
-            it.coneType.toString().contains(workflowInterfaceName)
-        }
-        
-        if (!implementsWorkflow) return
-        
-        val outputDir = File(outputDirPath)
-        outputDir.mkdirs()
-        val output = File(outputDir, "$className.puml")
-        output.writeText("@startuml\nstart\n")
-        
-        val function = declaration.declarations
-            .filterIsInstance<FirSimpleFunction>()
-            .firstOrNull { it.name.asString() == workflowMethodName }
-        
-        if (function == null) {
-            println("⚠️ Methode '$workflowMethodName' in $className nicht gefunden.")
-            return
-        }
-        
-        val body = function.body
-        if (body is FirBlock) {
-            val listName = findActivityListName(body)
-            parseFirBody(body, output, listName)
-        }
-        
-        output.appendText("stop\n@enduml\n")
-    }
-    
-    private fun findActivityListName(body: FirBlock): String? {
-        for (stmt in body.statements) {
-            if (stmt is FirVariable) {
-                val initializerCall = stmt.initializer as? FirFunctionCall
-                if (initializerCall?.calleeReference?.name?.asString() == "mutableListOf") {
-                    return stmt.name.asString()
-                }
-            }
-            if (stmt is FirReturnExpression) {
-                val call = stmt.result as? FirFunctionCall
-                if (call?.calleeReference?.name?.asString() == "buildList") {
-                    return null // Keine benannte Liste
-                }
-            }
-        }
-        return "activities" // Fallback
-    }
-    
-    private fun parseFirBody(
-        body: FirBlock,
-        output: File,
-        activityListName: String?,
-        indent: Int = 0,
-        localVars: MutableMap<String, String> = mutableMapOf()
-    ) {
-        for (stmt in body.statements) {
-            parseFirStatement(stmt, output, activityListName, indent, localVars)
-        }
-    }
-    
-    private fun parseFirStatement(
-        stmt: FirStatement,
-        output: File,
-        activityListName: String?,
-        indent: Int,
-        localVars: MutableMap<String, String>
-    ) {
-        val ind = "    ".repeat(indent)
-        
-        when (stmt) {
-            is FirVariable -> {
-                val varName = stmt.name.asString()
-                val initText = stmt.initializer?.source?.lighterASTNode?.toString()
-                    ?: stmt.initializer?.render()
-                    ?: "Unknown"
-                localVars[varName] = initText
-            }
-            
-            is FirWhenExpression -> {
-                if (isIfExpression(stmt)) {
-                    val condition = stmt.branches.getOrNull(0)?.condition?.source?.lighterASTNode ?: "Unknown"
-                    output.appendText("${ind}if ($condition?) then (yes)\n")
-                    stmt.branches.getOrNull(0)?.result?.let {
-                        parseFirStatement(it, output, activityListName, indent + 1, localVars)
-                    }
-                    stmt.branches.getOrNull(1)?.result?.let {
-                        output.appendText("${ind}else (no)\n")
-                        parseFirStatement(it, output, activityListName, indent + 1, localVars)
-                    }
-                    output.appendText("${ind}endif\n")
-                } else {
-                    val subjectRaw = stmt.subject?.source?.lighterASTNode?.toString() ?: "Unknown"
-                    val subject = localVars[subjectRaw] ?: subjectRaw
-                    output.appendText("${ind}switch ($subject)\n")
-                    stmt.branches.forEachIndexed { idx, branch ->
-                        val cond = renderCondition(branch.condition)
-                        output.appendText("${ind}case (\"$cond\")\n")
-                        parseFirStatement(branch.result, output, activityListName, indent + 1, localVars)
-                    }
-                    output.appendText("${ind}endswitch\n")
-                }
-            }
-            
-            is FirBlock -> {
-                val stmts = stmt.statements
-                var i = 0
-                while (i < stmts.size) {
-                    val (curr, next) = stmts.getOrNull(i) to stmts.getOrNull(i + 1)
-                    val forLoopMatch = curr is FirVariable &&
-                            curr.initializer is FirFunctionCall &&
-                            (curr.initializer as FirFunctionCall).calleeReference.name.asString() == "iterator" &&
-                            next is FirWhileLoop
-                    
-                    if (forLoopMatch) {
-                        val iteratorVar = curr
-                        val whileLoop = next
-                        val loopBody = whileLoop.block
-                        val loopVar = loopBody.statements.firstOrNull() as? FirVariable
-                        val loopVarName = loopVar?.name?.asString() ?: "i"
-                        val loopRange = (iteratorVar.initializer as FirFunctionCall)
-                            .explicitReceiver?.source?.lighterASTNode?.toString() ?: "?"
-                        
-                        output.appendText("${ind}repeat :for $loopVarName in ($loopRange);\n")
-                        loopBody.statements.drop(1).forEach {
-                            parseFirStatement(it, output, activityListName, indent + 1, localVars)
-                        }
-                        output.appendText("${ind}repeat while (next $loopVarName in ($loopRange)) is (true)\n")
-                        i += 2
+data class WorkflowConfiguration(
+    val outputDirectory: String,
+    val interfaceName: String,
+    val methodName: String
+)
+
+class UmlClassChecker(private val configuration: WorkflowConfiguration) : FirClassChecker(MppCheckerKind.Common) {
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(declaration: FirClass) {
+        if (declaration !is FirRegularClass || declaration.classKind == ClassKind.INTERFACE ||
+            declaration.status.modality == Modality.ABSTRACT) return
+        val hierarchy = hierarchy(declaration, context.session)
+        if (hierarchy.none {
+            val id = it.symbol.classId
+            if ('.' in configuration.interfaceName) id.asSingleFqName().asString() == configuration.interfaceName
+            else id.shortClassName.asString() == configuration.interfaceName
+        }) return
+
+        val scope = declaration.unsubstitutedScope()
+        fun resolveMethod(name: Name): FirNamedFunction? {
+            val candidates = mutableListOf<FirNamedFunction>()
+            scope.processFunctionsByName(name) { symbol ->
+                val method = symbol.fir
+                if (method.valueParameters.isEmpty() && method.receiverParameter == null) {
+                    if (symbol.isIntersectionOverride) {
+                        val inherited = filterOutOverriddenFunctions(scope.getDirectOverriddenFunctionsWithBaseScope(symbol))
+                        candidates += inherited.map { it.member.fir.unwrapFakeOverrides() }
                     } else {
-                        parseFirStatement(curr ?: return, output, activityListName, indent, localVars)
-                        i++
+                        candidates += method.unwrapFakeOverrides()
                     }
                 }
             }
-            
-            is FirWhileLoop -> {
-                val cond = stmt.condition.source?.lighterASTNode ?: stmt.condition.render()
-                output.appendText("${ind}while ($cond) is (true)\n")
-                parseFirStatement(stmt.block, output, activityListName, indent + 1, localVars)
-                output.appendText("${ind}endwhile\n")
-            }
-            
-            is FirFunctionCall -> {
-                val callee = stmt.calleeReference.name.asString()
-                val receiver = stmt.explicitReceiver?.source?.lighterASTNode?.toString()
-                
-                if (callee == "buildList") {
-                    val lambda = stmt.argumentList.arguments.firstOrNull() as? FirAnonymousFunction
-                    lambda?.body?.let { lambdaBody ->
-                        parseFirStatement(lambdaBody, output, activityListName, indent, localVars)
-                    }
-                    return
-                }
-                
-                val isAddOperation = callee == "add" || callee == "plusAssign"
-                val matchesReceiver = receiver == activityListName || receiver == "this" || activityListName == null
-                
-                if (isAddOperation && matchesReceiver) {
-                    val arg = stmt.argumentList.arguments.firstOrNull()?.source?.lighterASTNode ?: "Unknown"
-                    output.appendText("${ind}:$arg;\n")
-                    return
-                }
-            }
-            
-            is FirReturnExpression -> {
-                val returnExpr = stmt.result as? FirFunctionCall
-                if (returnExpr?.calleeReference?.name?.asString() == "buildList") {
-                    val lambda = returnExpr.argumentList.arguments.firstOrNull() as? FirAnonymousFunctionExpression
-                    val lambdaBody = lambda?.anonymousFunction?.body
-                    lambdaBody?.let {
-                        parseFirStatement(it, output, activityListName, indent, localVars)
-                    }
-                    return
-                }
-            }
-            
-            else -> {
-                val txt = stmt.render()
-                if (activityListName != null && (txt.contains("$activityListName.add") || txt.contains("$activityListName += "))) {
-                    val value = txt.substringAfter("add(").substringBefore(")").ifBlank { "Unknown" }
-                    output.appendText("${ind}:$value;\n")
-                }
-            }
+            return candidates.distinct().singleOrNull()
         }
+        val function = resolveMethod(Name.identifier(configuration.methodName))
+        val analyzer = FirWorkflowAnalyzer(hierarchy, ::resolveMethod)
+        val nodes = function?.let { analyzer.analyze(it) }
+            ?: listOf(WorkflowNode.Unknown("No source body for ${configuration.methodName}"))
+        val outputDir = File(configuration.outputDirectory).apply { mkdirs() }
+        val relativePath = declaration.symbol.classId.asSingleFqName().asString().replace('.', '/')
+        val output = File(outputDir, "$relativePath.puml")
+        output.parentFile.mkdirs()
+        val workflow = Workflow(nodes)
+        output.writeText(PlantUmlRenderer.render(workflow))
+        File(outputDir, "$relativePath.diagnostics.txt").writeText(
+            if (workflow.diagnostics.isEmpty()) "No analysis gaps detected within the supported subset.\n"
+            else workflow.diagnostics.joinToString("\n", prefix = "INCOMPLETE\n", postfix = "\n")
+        )
     }
-    private fun renderCondition(cond: FirExpression): String = when (cond) {
-        is FirBooleanOperatorExpression -> listOfNotNull(
-            renderCondition(cond.leftOperand),
-            renderCondition(cond.rightOperand)
-        ).joinToString(", ")
-        is FirElseIfTrueCondition -> "else"
-        else -> cond.source?.lighterASTNode?.toString() ?: "Unknown"
-    }
-    
-    private fun isIfExpression(whenExpr: FirWhenExpression): Boolean {
-        return whenExpr.subject == null
+
+    private fun hierarchy(root: FirRegularClass, session: FirSession): List<FirRegularClass> {
+        val result = mutableListOf<FirRegularClass>()
+        val seen = mutableSetOf<org.jetbrains.kotlin.name.ClassId>()
+        fun visit(declaration: FirRegularClass) {
+            if (!seen.add(declaration.symbol.classId)) return
+            result.add(declaration)
+            declaration.superTypeRefs.mapNotNull { it.coneType.toRegularClassSymbol(session)?.fir }.sortedBy { it.classKind == ClassKind.INTERFACE }.forEach(::visit)
+        }
+        visit(root)
+        return result
     }
 }
